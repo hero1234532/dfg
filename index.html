@@ -1,0 +1,2243 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#ffffff" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <title>SiriusTa — Guiding Every Harvest</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <!-- Leaflet Map Engine for Agro-Satellite & NASA GIBS Climate Layers -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+
+  <style>
+    :root {
+      --star-orange: #ea580c;
+      --star-amber: #f59e0b;
+      --leaf-green: #16a34a;
+      --forest-green: #14532d;
+      --app-surface: #f4f7f5;
+      --text-primary: #0f172a;
+      --text-secondary: #475569;
+      --border-subtle: #e2e8f0;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    body {
+      font-family: 'Outfit', sans-serif;
+      background-color: var(--app-surface);
+      color: var(--text-primary);
+      min-height: 100dvh;
+      display: flex;
+      flex-direction: column;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* ==========================================
+       HEADER & 3-WAY LOCATION PICKER
+       ========================================== */
+    .app-header {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      background: rgba(255, 255, 255, 0.95);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      padding: calc(12px + env(safe-area-inset-top)) 16px 12px;
+      border-bottom: 1px solid var(--border-subtle);
+    }
+
+    .header-inner {
+      width: 100%;
+      max-width: 500px;
+      margin: 0 auto;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+    }
+
+    .brand-identity {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-shrink: 0;
+    }
+
+    .logo-wrapper {
+      width: 48px;
+      height: 35px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .logo-wrapper img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+    }
+
+    .brand-copy {
+      display: flex;
+      flex-direction: column;
+      gap: 1px;
+    }
+
+    .brand-title {
+      font-size: 20px;
+      font-weight: 700;
+      letter-spacing: -0.3px;
+      color: var(--forest-green);
+      line-height: 1.05;
+    }
+
+    .brand-title span {
+      background: linear-gradient(135deg, var(--star-orange), var(--star-amber));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .brand-subtitle {
+      font-size: 11px;
+      font-weight: 500;
+      color: var(--text-secondary);
+    }
+
+    .location-pill {
+      background: #ecfdf5;
+      color: var(--forest-green);
+      border: 1.5px solid #86efac;
+      padding: 7px 12px;
+      border-radius: 99px;
+      font-family: 'Outfit', sans-serif;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      max-width: 185px;
+      transition: all 0.2s ease;
+    }
+
+    .location-pill:hover {
+      background: #dcfce7;
+    }
+
+    .location-text {
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .chevron {
+      font-size: 10px;
+      transition: transform 0.2s ease;
+    }
+
+    .location-pill.open .chevron {
+      transform: rotate(180deg);
+    }
+
+    /* 3-Method Location Drawer */
+    .location-drawer {
+      display: none;
+      background: #ffffff;
+      border-bottom: 1px solid var(--border-subtle);
+      padding: 16px;
+      box-shadow: 0 16px 32px -12px rgba(15, 23, 42, 0.12);
+      animation: slideDown 0.2s ease;
+      position: relative;
+      z-index: 99;
+    }
+
+    .location-drawer.open {
+      display: block;
+    }
+
+    @keyframes slideDown {
+      from { opacity: 0; transform: translateY(-6px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .drawer-inner {
+      width: 100%;
+      max-width: 500px;
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .loc-method-box {
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 16px;
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .method-title {
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--forest-green);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .city-select, .coord-input {
+      width: 100%;
+      padding: 10px 12px;
+      border-radius: 12px;
+      border: 1.5px solid #cbd5e1;
+      background: #ffffff;
+      font-family: 'Outfit', sans-serif;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-primary);
+      outline: none;
+    }
+
+    .city-select:focus, .coord-input:focus {
+      border-color: var(--leaf-green);
+    }
+
+    .gps-btn {
+      width: 100%;
+      background: linear-gradient(135deg, #16a34a, #15803d);
+      color: #ffffff;
+      border: none;
+      padding: 11px 14px;
+      border-radius: 12px;
+      font-family: 'Outfit', sans-serif;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+
+    .gps-btn:active {
+      transform: scale(0.99);
+    }
+
+    .coord-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+
+    .assign-btn {
+      width: 100%;
+      background: #0f172a;
+      color: #ffffff;
+      border: none;
+      padding: 10px 14px;
+      border-radius: 12px;
+      font-family: 'Outfit', sans-serif;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    .assign-btn:hover {
+      background: #1e293b;
+    }
+
+    .location-feedback {
+      font-size: 12px;
+      color: var(--star-orange);
+      font-weight: 600;
+      display: none;
+      text-align: center;
+    }
+
+    /* ==========================================
+       MAIN CONTAINER & 2-TAB BAR
+       ========================================== */
+    .main-container {
+      width: 100%;
+      max-width: 500px;
+      margin: 0 auto;
+      padding: 16px 16px calc(36px + env(safe-area-inset-bottom));
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      flex: 1;
+    }
+
+    .tab-bar {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      background: #e2e8f0;
+      padding: 4px;
+      border-radius: 16px;
+      gap: 4px;
+    }
+
+    .tab-btn {
+      border: none;
+      background: transparent;
+      padding: 11px 10px;
+      border-radius: 12px;
+      font-family: 'Outfit', sans-serif;
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text-secondary);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 7px;
+      transition: all 0.2s ease;
+    }
+
+    .tab-btn.active {
+      background: #ffffff;
+      color: var(--forest-green);
+      box-shadow: 0 4px 12px rgba(15, 23, 42, 0.08);
+    }
+
+    .tab-panel {
+      display: none;
+      flex-direction: column;
+      gap: 16px;
+      animation: fadeIn 0.25s ease;
+    }
+
+    .tab-panel.active {
+      display: flex;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(4px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .section-intro {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      gap: 8px;
+      padding: 0 2px;
+    }
+
+    .section-intro h2 {
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--text-primary);
+    }
+
+    .section-intro p {
+      font-size: 12.5px;
+      color: var(--text-secondary);
+      margin-top: 2px;
+    }
+
+    .tap-hint {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--forest-green);
+      background: #dcfce7;
+      border: 1px solid #bbf7d0;
+      padding: 4px 10px;
+      border-radius: 99px;
+      white-space: nowrap;
+      cursor: pointer;
+    }
+
+    /* ==========================================
+       AGRO-CLIMATE ZOOMED MINI-MAP CARD (TAB 1)
+       ========================================== */
+    .mini-map-card {
+      background: #ffffff;
+      border-radius: 22px;
+      padding: 12px;
+      border: 1px solid var(--border-subtle);
+      box-shadow: 0 10px 24px -10px rgba(15, 23, 42, 0.08);
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .mini-map-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+
+    .mini-map-title {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--forest-green);
+    }
+
+    .live-map-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #16a34a;
+      box-shadow: 0 0 8px #22c55e;
+      flex-shrink: 0;
+    }
+
+    .map-controls-group {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+    }
+
+    .zoom-toggle-btn {
+      background: #f1f5f9;
+      border: 1px solid #cbd5e1;
+      color: var(--text-primary);
+      font-family: 'Outfit', sans-serif;
+      font-size: 11px;
+      font-weight: 600;
+      padding: 4px 9px;
+      border-radius: 99px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    .zoom-toggle-btn:hover {
+      background: #e2e8f0;
+    }
+
+    .zoom-toggle-btn.agro-active {
+      background: #ecfdf5;
+      border-color: #86efac;
+      color: var(--forest-green);
+    }
+
+    .mini-map-viewport {
+      width: 100%;
+      height: 156px;
+      border-radius: 16px;
+      overflow: hidden;
+      position: relative;
+      background: #0f172a;
+      border: 1px solid #cbd5e1;
+    }
+
+    #fieldMiniMap {
+      width: 100%;
+      height: 100%;
+      z-index: 1;
+    }
+
+    .mini-map-badge {
+      position: absolute;
+      bottom: 8px;
+      left: 8px;
+      z-index: 500;
+      background: rgba(15, 23, 42, 0.82);
+      backdrop-filter: blur(6px);
+      color: #ffffff;
+      font-size: 11px;
+      font-weight: 600;
+      padding: 4px 10px;
+      border-radius: 99px;
+      pointer-events: none;
+    }
+
+    .climate-legend-pill {
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      z-index: 500;
+      background: rgba(15, 23, 42, 0.82);
+      backdrop-filter: blur(6px);
+      color: #fef08a;
+      font-size: 10.5px;
+      font-weight: 600;
+      padding: 3px 9px;
+      border-radius: 99px;
+      pointer-events: none;
+      display: none;
+    }
+
+    /* Custom Glowing Field Pin on Agro-Climate Map */
+    .agro-pin-wrapper {
+      position: relative;
+      width: 28px;
+      height: 28px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .agro-pin-pulse {
+      position: absolute;
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      background: rgba(250, 204, 21, 0.45);
+      animation: pinRadar 2s infinite ease-out;
+    }
+
+    .agro-pin-core {
+      position: relative;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: #ea580c;
+      border: 2.5px solid #ffffff;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.55);
+    }
+
+    @keyframes pinRadar {
+      0% { transform: scale(0.6); opacity: 1; }
+      100% { transform: scale(1.7); opacity: 0; }
+    }
+
+    /* ==========================================
+       REALISTIC TRAFFIC LIGHT COMPONENT
+       ========================================== */
+    .traffic-light {
+      display: inline-flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+      background: linear-gradient(180deg, #1e293b 0%, #0f172a 100%);
+      padding: 6px 6px;
+      border-radius: 12px;
+      border: 2px solid #334155;
+      box-shadow: 0 4px 10px rgba(15, 23, 42, 0.25), inset 0 1px 2px rgba(255, 255, 255, 0.15);
+      flex-shrink: 0;
+    }
+
+    .tl-lens {
+      width: 13px;
+      height: 13px;
+      border-radius: 50%;
+      position: relative;
+      opacity: 0.2;
+      transition: all 0.3s ease;
+      box-shadow: inset 0 2px 3px rgba(0, 0, 0, 0.6);
+    }
+
+    .tl-lens::before {
+      content: "";
+      position: absolute;
+      top: -2px;
+      left: -1px;
+      right: -1px;
+      height: 6px;
+      border-top: 2px solid #475569;
+      border-radius: 50% 50% 0 0;
+    }
+
+    .tl-red { background: #ef4444; }
+    .tl-yellow { background: #facc15; }
+    .tl-green { background: #22c55e; }
+
+    .tl-lens.on {
+      opacity: 1;
+      transform: scale(1.08);
+    }
+    .tl-red.on {
+      background: radial-gradient(circle at 35% 35%, #fca5a5, #ef4444 65%, #b91c1c);
+      box-shadow: 0 0 12px #ef4444, 0 0 4px #ffffff;
+    }
+    .tl-yellow.on {
+      background: radial-gradient(circle at 35% 35%, #fef08a, #facc15 65%, #ca8a04);
+      box-shadow: 0 0 12px #facc15, 0 0 4px #ffffff;
+    }
+    .tl-green.on {
+      background: radial-gradient(circle at 35% 35%, #bbf7d0, #22c55e 65%, #15803d);
+      box-shadow: 0 0 12px #22c55e, 0 0 4px #ffffff;
+    }
+
+    /* ==========================================
+       TAB 1: 5 DISTINCT LARGE VISUAL PARAMETERS
+       ========================================== */
+    .param-card {
+      background: #ffffff;
+      border-radius: 26px;
+      padding: 16px;
+      border: 1px solid var(--border-subtle);
+      box-shadow: 0 10px 24px -10px rgba(15, 23, 42, 0.08);
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .param-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .param-heading-text {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+
+    .param-title {
+      font-size: 17px;
+      font-weight: 700;
+      color: var(--text-primary);
+    }
+
+    .param-status-label {
+      display: inline-block;
+      font-size: 12.5px;
+      font-weight: 600;
+      color: var(--forest-green);
+    }
+
+    .visual-stage {
+      width: 100%;
+      height: 185px;
+      border-radius: 20px;
+      position: relative;
+      overflow: hidden;
+      cursor: pointer;
+      user-select: none;
+      transition: all 0.45s ease;
+      border: 1px solid rgba(0, 0, 0, 0.06);
+    }
+
+    .stage-badge {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      z-index: 10;
+      background: rgba(15, 23, 42, 0.62);
+      backdrop-filter: blur(6px);
+      color: #ffffff;
+      font-size: 11px;
+      font-weight: 600;
+      padding: 4px 10px;
+      border-radius: 99px;
+    }
+
+    .param-desc {
+      font-size: 13.5px;
+      line-height: 1.55;
+      color: var(--text-secondary);
+      padding: 0 2px;
+    }
+
+    /* VISUAL 1: SUN & HEAT INTENSITY */
+    .sun-stage {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .sun-stage.level-1 {
+      background: linear-gradient(180deg, #bae6fd 0%, #e0f2fe 65%, #fef9c3 100%);
+    }
+    .sun-stage.level-2 {
+      background: linear-gradient(180deg, #fde68a 0%, #fcd34d 55%, #fbbf24 100%);
+    }
+    .sun-stage.level-3 {
+      background: linear-gradient(180deg, #f97316 0%, #ea580c 52%, #9a3412 100%);
+    }
+
+    .sun-orb-wrap {
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: transform 0.45s ease;
+    }
+    .sun-stage.level-1 .sun-orb-wrap { transform: scale(0.78); }
+    .sun-stage.level-2 .sun-orb-wrap { transform: scale(1.0); }
+    .sun-stage.level-3 .sun-orb-wrap { transform: scale(1.26); }
+
+    .sun-glow-ring {
+      position: absolute;
+      width: 150px;
+      height: 150px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(255, 255, 255, 0.75) 0%, rgba(253, 224, 71, 0.35) 50%, transparent 72%);
+      animation: sunPulse 2.8s infinite ease-in-out;
+    }
+    .sun-stage.level-3 .sun-glow-ring {
+      width: 195px;
+      height: 195px;
+      background: radial-gradient(circle, rgba(254, 240, 138, 0.9) 0%, rgba(251, 146, 60, 0.5) 50%, transparent 75%);
+    }
+
+    @keyframes sunPulse {
+      0%, 100% { transform: scale(0.95); opacity: 0.85; }
+      50% { transform: scale(1.08); opacity: 1; }
+    }
+
+    .sun-rays-svg {
+      animation: spinSlow 24s linear infinite;
+    }
+    @keyframes spinSlow {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
+
+    .heat-waves {
+      position: absolute;
+      bottom: 8px;
+      left: 0;
+      right: 0;
+      display: flex;
+      justify-content: space-around;
+      opacity: 0;
+      transition: opacity 0.4s ease;
+    }
+    .sun-stage.level-3 .heat-waves {
+      opacity: 0.85;
+    }
+
+    /* VISUAL 2: ABOVE & BELOW GROUND WATER */
+    .water-stage {
+      background: linear-gradient(180deg, #e0f2fe 0%, #f0f9ff 48%, #78350f 48%, #451a03 100%);
+    }
+
+    .above-water-layer {
+      position: absolute;
+      bottom: 52%;
+      left: 0;
+      right: 0;
+      background: linear-gradient(180deg, rgba(56, 189, 248, 0.55) 0%, rgba(2, 132, 199, 0.82) 100%);
+      border-top: 2.5px solid #bae6fd;
+      transition: height 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+      z-index: 2;
+    }
+    .water-stage.state-dry .above-water-layer { height: 0px; border-top: none; }
+    .water-stage.state-balanced .above-water-layer { height: 14px; }
+    .water-stage.state-wet .above-water-layer { height: 34px; }
+
+    .ground-crust-line {
+      position: absolute;
+      top: 48%;
+      left: 0;
+      right: 0;
+      height: 6px;
+      background: #3f6212;
+      z-index: 4;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.25);
+    }
+
+    .below-moisture-layer {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: linear-gradient(180deg, rgba(14, 165, 233, 0.48) 0%, rgba(3, 105, 161, 0.85) 100%);
+      border-top: 2px dashed #7dd3fc;
+      transition: height 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+      z-index: 2;
+    }
+    .water-stage.state-dry .below-moisture-layer { height: 14%; }
+    .water-stage.state-balanced .below-moisture-layer { height: 32%; }
+    .water-stage.state-wet .below-moisture-layer { height: 48%; }
+
+    .zone-label-top {
+      position: absolute;
+      top: 10px;
+      right: 12px;
+      z-index: 6;
+      font-size: 11px;
+      font-weight: 700;
+      color: #0369a1;
+      background: rgba(255, 255, 255, 0.85);
+      padding: 3px 9px;
+      border-radius: 8px;
+    }
+
+    .zone-label-bottom {
+      position: absolute;
+      bottom: 10px;
+      right: 12px;
+      z-index: 6;
+      font-size: 11px;
+      font-weight: 700;
+      color: #ffffff;
+      background: rgba(15, 23, 42, 0.65);
+      padding: 3px 9px;
+      border-radius: 8px;
+    }
+
+    .plant-roots-svg {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 5;
+      pointer-events: none;
+    }
+
+    /* VISUAL 3: WIND & CANOPY AIRFLOW */
+    .wind-stage {
+      background: linear-gradient(180deg, #ecfeff 0%, #cffafe 65%, #dcfce7 100%);
+      display: flex;
+      align-items: flex-end;
+      justify-content: center;
+    }
+
+    .stalks-group {
+      transform-origin: 50% 100%;
+      transition: transform 0.5s ease;
+    }
+    .wind-stage.level-1 .stalks-group { animation: swayGentle 3.5s ease-in-out infinite; }
+    .wind-stage.level-2 .stalks-group { animation: swayModerate 2.1s ease-in-out infinite; }
+    .wind-stage.level-3 .stalks-group { animation: swayStrong 1.2s ease-in-out infinite; }
+
+    @keyframes swayGentle {
+      0%, 100% { transform: rotate(-2deg); }
+      50% { transform: rotate(5deg); }
+    }
+    @keyframes swayModerate {
+      0%, 100% { transform: rotate(4deg); }
+      50% { transform: rotate(15deg); }
+    }
+    @keyframes swayStrong {
+      0%, 100% { transform: rotate(14deg); }
+      50% { transform: rotate(27deg); }
+    }
+
+    .wind-streak {
+      stroke-dasharray: 60 120;
+      animation: windFlow 2.2s linear infinite;
+    }
+    .wind-stage.level-1 .wind-streak { animation-duration: 3.8s; opacity: 0.45; }
+    .wind-stage.level-2 .wind-streak { animation-duration: 2.0s; opacity: 0.75; }
+    .wind-stage.level-3 .wind-streak { animation-duration: 1.0s; opacity: 1; }
+
+    @keyframes windFlow {
+      from { stroke-dashoffset: 180; }
+      to { stroke-dashoffset: 0; }
+    }
+
+    /* VISUAL 4: AIR HUMIDITY & DEW */
+    .humidity-stage {
+      background: linear-gradient(180deg, #e2e8f0 0%, #f0fdf4 60%, #dcfce7 100%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .humidity-stage.level-3 {
+      background: linear-gradient(180deg, #94a3b8 0%, #cbd5e1 45%, #bbf7d0 100%);
+    }
+
+    .dew-drop {
+      transition: all 0.4s ease;
+    }
+    .humidity-stage.level-1 .dew-extra { opacity: 0; transform: scale(0.3); }
+    .humidity-stage.level-2 .dew-extra { opacity: 0.85; transform: scale(0.9); }
+    .humidity-stage.level-3 .dew-extra { opacity: 1; transform: scale(1.2); }
+
+    /* VISUAL 5: SOIL VITALITY & NUTRIENTS */
+    .soil-stage {
+      background: linear-gradient(180deg, #d9f99d 0%, #bef264 24%, #713f12 24%, #422006 100%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .nutrient-orb {
+      transition: all 0.45s ease;
+    }
+    .soil-stage.level-1 .nut-mid, .soil-stage.level-1 .nut-high { opacity: 0.1; transform: scale(0.4); }
+    .soil-stage.level-2 .nut-mid { opacity: 0.9; transform: scale(1); }
+    .soil-stage.level-2 .nut-high { opacity: 0.15; transform: scale(0.5); }
+    .soil-stage.level-3 .nut-mid, .soil-stage.level-3 .nut-high { opacity: 1; transform: scale(1.15); }
+
+    /* ==========================================
+       TAB 2: CLIMATE SHOCK TIME-SHIFT & WORLD PIN GRAPHICS
+       ========================================== */
+    .climate-bridge-card {
+      background: linear-gradient(145deg, #14532d 0%, #166534 55%, #15803d 100%);
+      color: #ffffff;
+      border-radius: 26px;
+      padding: 18px;
+      position: relative;
+      overflow: hidden;
+      box-shadow: 0 18px 34px -12px rgba(20, 83, 45, 0.35);
+      display: flex;
+      flex-direction: column;
+      gap: 13px;
+    }
+
+    .climate-bridge-card.local-mode {
+      background: linear-gradient(145deg, #0f172a 0%, #1e293b 60%, #334155 100%);
+      box-shadow: 0 18px 34px -12px rgba(15, 23, 42, 0.3);
+    }
+
+    .bridge-top-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      align-self: flex-start;
+      background: rgba(255, 255, 255, 0.16);
+      border: 1px solid rgba(255, 255, 255, 0.24);
+      padding: 5px 12px;
+      border-radius: 99px;
+      font-size: 11.5px;
+      font-weight: 600;
+    }
+
+    .pulse-beacon {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #fde047;
+      box-shadow: 0 0 10px #fde047;
+    }
+
+    /* Visual Time-Shift Relay Box with World Map Pins */
+    .time-shift-relay {
+      background: rgba(0, 0, 0, 0.24);
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      border-radius: 20px;
+      padding: 12px;
+      display: grid;
+      grid-template-columns: 1fr auto 1fr;
+      align-items: stretch;
+      gap: 8px;
+    }
+
+    .relay-step {
+      background: rgba(255, 255, 255, 0.08);
+      border-radius: 14px;
+      padding: 10px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      gap: 6px;
+    }
+
+    .relay-step.hit-first {
+      border-left: 3px solid #f87171;
+    }
+
+    .relay-step.your-turn {
+      border-right: 3px solid #4ade80;
+    }
+
+    .relay-time-tag {
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
+      color: #fde047;
+    }
+
+    .relay-step.your-turn .relay-time-tag {
+      color: #86efac;
+    }
+
+    /* City + World Pin Graphic Row */
+    .city-pin-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
+    .relay-city {
+      font-size: 13.5px;
+      font-weight: 700;
+      color: #ffffff;
+      line-height: 1.2;
+    }
+
+    .world-pin-thumb {
+      width: 74px;
+      height: 40px;
+      border-radius: 9px;
+      overflow: hidden;
+      border: 1.5px solid rgba(255, 255, 255, 0.32);
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+      flex-shrink: 0;
+      background: #0c4a6e;
+    }
+
+    .world-pin-thumb svg {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+
+    .relay-event {
+      font-size: 11.5px;
+      font-weight: 500;
+      color: rgba(255, 255, 255, 0.85);
+    }
+
+    .wave-transit {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 2px;
+      color: #fde047;
+    }
+
+    .wave-transit span {
+      font-size: 18px;
+      animation: moveWave 1.8s infinite ease-in-out;
+    }
+
+    @keyframes moveWave {
+      0%, 100% { transform: translateX(-2px); }
+      50% { transform: translateX(3px); }
+    }
+
+    .wave-transit small {
+      font-size: 9px;
+      font-weight: 600;
+      text-transform: uppercase;
+      opacity: 0.85;
+    }
+
+    /* Local Mode City + World Pin Header */
+    .local-city-pin-bar {
+      display: none;
+      align-items: center;
+      justify-content: space-between;
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      border-radius: 16px;
+      padding: 10px 12px;
+      gap: 10px;
+    }
+
+    .local-city-pin-bar .world-pin-thumb {
+      width: 92px;
+      height: 48px;
+    }
+
+    .shared-traits-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    .trait-chip {
+      background: rgba(255, 255, 255, 0.14);
+      color: #f0fdf4;
+      padding: 4px 10px;
+      border-radius: 99px;
+      font-size: 11.5px;
+      font-weight: 500;
+    }
+
+    .bridge-story-text {
+      font-size: 13.5px;
+      line-height: 1.6;
+      color: rgba(255, 255, 255, 0.94);
+    }
+
+    /* Action / Warning Hero Cards */
+    .advice-card {
+      background: #ffffff;
+      border-radius: 26px;
+      padding: 18px;
+      border: 1px solid var(--border-subtle);
+      box-shadow: 0 10px 24px -10px rgba(15, 23, 42, 0.08);
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .advice-card.card-danger { border-top: 5px solid #dc2626; }
+    .advice-card.card-caution { border-top: 5px solid #f59e0b; }
+    .advice-card.card-good { border-top: 5px solid #16a34a; }
+
+    .advice-top-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .advice-pill {
+      padding: 5px 12px;
+      border-radius: 99px;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.2px;
+    }
+
+    .pill-danger { background: #fee2e2; color: #b91c1c; }
+    .pill-caution { background: #fef3c7; color: #b45309; }
+    .pill-good { background: #dcfce7; color: #15803d; }
+
+    .advice-hero-visual {
+      width: 100%;
+      height: 135px;
+      border-radius: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .bg-danger-soft { background: linear-gradient(135deg, #fef2f2, #fee2e2); }
+    .bg-caution-soft { background: linear-gradient(135deg, #fffbeb, #fef3c7); }
+    .bg-good-soft { background: linear-gradient(135deg, #f0fdf4, #dcfce7); }
+
+    .hero-emoji-main {
+      font-size: 72px;
+      line-height: 1;
+      filter: drop-shadow(0 8px 14px rgba(15, 23, 42, 0.14));
+    }
+
+    .advice-title {
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--text-primary);
+      line-height: 1.3;
+    }
+
+    .advice-desc {
+      font-size: 14px;
+      line-height: 1.6;
+      color: var(--text-secondary);
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Header -->
+  <header class="app-header">
+    <div class="header-inner">
+      <div class="brand-identity">
+        <div class="logo-wrapper">
+          <img
+            src="SiriusTa_Logo_Colored.png"
+            alt="SiriusTa Logo"
+            onerror="this.parentElement.innerHTML=`<svg viewBox='0 0 120 80' width='48' height='35' fill='none' xmlns='http://www.w3.org/2000/svg'><defs><linearGradient id='gOrbit' x1='12' y1='62' x2='108' y2='16' gradientUnits='userSpaceOnUse'><stop offset='0%' stop-color='#15803d'/><stop offset='55%' stop-color='#22c55e'/><stop offset='100%' stop-color='#84cc16'/></linearGradient><linearGradient id='gStar' x1='26' y1='44' x2='78' y2='28' gradientUnits='userSpaceOnUse'><stop offset='0%' stop-color='#ea580c'/><stop offset='50%' stop-color='#f97316'/><stop offset='100%' stop-color='#facc15'/></linearGradient></defs><path d='M 56 24 C 74 17, 89 17, 94 23' stroke='url(#gOrbit)' stroke-width='4.5' stroke-linecap='round'/><path d='M 38 32 C 16 44, 10 58, 22 63 C 38 69, 82 52, 93 29' stroke='url(#gOrbit)' stroke-width='5.5' stroke-linecap='round'/><path d='M 92 29 C 91 17, 101 11, 113 11 C 113 23, 106 32, 92 29 Z' fill='url(#gOrbit)'/><path d='M 52 9 Q 55 37 81 39 Q 55 41 52 69 Q 49 41 23 39 Q 49 37 52 9 Z' fill='url(#gStar)' stroke='#7c2d12' stroke-width='1'/><path d='M 52 24 Q 53.5 38 66 39 Q 53.5 40 52 54 Q 50.5 40 38 39 Q 50.5 38 52 24 Z' fill='#fefce8'/></svg>`"
+          />
+        </div>
+        <div class="brand-copy">
+          <div class="brand-title">Sirius<span>Ta</span></div>
+          <div class="brand-subtitle">Guiding Every Harvest</div>
+        </div>
+      </div>
+
+      <!-- Location Pill Trigger -->
+      <button class="location-pill" id="locationPillBtn" onclick="toggleLocationDrawer()">
+        <span>📍</span>
+        <span class="location-text" id="activeCityDisplay">Nakuru, Kenya</span>
+        <span class="chevron">▾</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- 3-Method Location Picker Drawer -->
+  <section class="location-drawer" id="locationDrawer">
+    <div class="drawer-inner">
+      <!-- Method 1: Pick a City -->
+      <div class="loc-method-box">
+        <div class="method-title">1. Pick Your City</div>
+        <select class="city-select" id="cityPicker" onchange="selectCityFromList(this.value)">
+          <option value="Nakuru, Kenya">Nakuru, Kenya (Sudden Storm Alert)</option>
+          <option value="Dakahlia, Egypt">Dakahlia, Egypt (Hot Wind Wave Alert)</option>
+          <option value="New Cairo, Egypt">New Cairo, Egypt (Heat Spike Alert)</option>
+          <option value="Faiyum, Egypt">Faiyum, Egypt (Calm Local Outlook)</option>
+          <option value="Minya, Egypt">Minya, Egypt (Calm Local Outlook)</option>
+          <option value="Punjab, India">Punjab, India (Dry Wave Alert)</option>
+          <option value="Fresno, USA">Fresno, USA (Gusty Wind Alert)</option>
+          <option value="Sinop, Brazil">Sinop, Brazil (Heavy Rain & Fungus Alert)</option>
+        </select>
+      </div>
+
+      <!-- Method 2: Auto GPS -->
+      <div class="loc-method-box">
+        <div class="method-title">2. Auto-Detect Field Location</div>
+        <button class="gps-btn" id="gpsDetectBtn" onclick="detectGPSLocation()">
+          📡 Use My Current Location (GPS)
+        </button>
+      </div>
+
+      <!-- Method 3: Exact Coordinates -> Assign to City -->
+      <div class="loc-method-box">
+        <div class="method-title">3. Exact Coordinates (Assign to City)</div>
+        <div class="coord-row">
+          <input type="number" step="any" class="coord-input" id="inputLat" placeholder="Latitude (e.g. -0.30)" />
+          <input type="number" step="any" class="coord-input" id="inputLon" placeholder="Longitude (e.g. 36.08)" />
+        </div>
+        <button class="assign-btn" id="assignCoordBtn" onclick="assignExactCoordinates()">
+          🗺️ Assign Coordinates to City
+        </button>
+      </div>
+
+      <div class="location-feedback" id="locationFeedback"></div>
+    </div>
+  </section>
+
+  <!-- Main Content -->
+  <main class="main-container">
+    <!-- 2-Tab Switcher -->
+    <nav class="tab-bar" role="tablist">
+      <button class="tab-btn active" id="tabBtnField" onclick="switchTab('field')">
+        🌱 My Field
+      </button>
+      <button class="tab-btn" id="tabBtnAdvice" onclick="switchTab('advice')">
+        ⚠️ Warnings & Tips
+      </button>
+    </nav>
+
+    <!-- ==========================================
+         TAB 1: AGRO-CLIMATE ZOOMED MINI-MAP + 5 VISUAL PARAMETERS
+         ========================================== -->
+    <section id="panelField" class="tab-panel active">
+      <div class="section-intro">
+        <div>
+          <h2>Field Conditions</h2>
+          <p>Visual field status without numbers</p>
+        </div>
+        <span class="tap-hint">Tap visual to test levels</span>
+      </div>
+
+      <!-- Zoomed Agro-Satellite & NASA Climate Mini-Map Card -->
+      <article class="mini-map-card">
+        <div class="mini-map-header">
+          <div class="mini-map-title">
+            <span class="live-map-dot"></span>
+            <span id="miniMapTitleText">Agro Map • Nakuru, Kenya</span>
+          </div>
+          <div class="map-controls-group">
+            <button class="zoom-toggle-btn agro-active" id="agroLayerBtn" onclick="toggleAgroClimateLayer()">
+              🌾 Agro Satellite
+            </button>
+            <button class="zoom-toggle-btn" id="zoomToggleBtn" onclick="toggleMapZoom()">
+              🔍 Field Zoom
+            </button>
+          </div>
+        </div>
+        <div class="mini-map-viewport">
+          <div id="fieldMiniMap"></div>
+          <span class="climate-legend-pill" id="climateLegendPill">🛰️ NASA Vegetation & Climate Zone</span>
+          <span class="mini-map-badge" id="miniMapBadge">🌾 Agricultural Plots • Zoomed to City</span>
+        </div>
+      </article>
+
+      <!-- PARAMETER 1: SUN & HEAT (Dynamic Light Intensity) -->
+      <article class="param-card">
+        <div class="param-header">
+          <div class="param-heading-text">
+            <h3 class="param-title">Sun & Heat Intensity</h3>
+            <span class="param-status-label" id="sunLabel">Bright Midday Sun</span>
+          </div>
+          <div class="traffic-light" id="tlSun">
+            <span class="tl-lens tl-red"></span>
+            <span class="tl-lens tl-yellow on"></span>
+            <span class="tl-lens tl-green"></span>
+          </div>
+        </div>
+
+        <div class="visual-stage sun-stage level-2" id="stageSun" onclick="cycleSunLevel()">
+          <span class="stage-badge" id="sunBadge">Light Intensity: Moderate-High</span>
+          <div class="sun-orb-wrap">
+            <div class="sun-glow-ring"></div>
+            <svg class="sun-rays-svg" width="126" height="126" viewBox="0 0 120 120">
+              <circle cx="60" cy="60" r="30" fill="#fef08a" />
+              <circle cx="60" cy="60" r="23" fill="#f59e0b" />
+              <g stroke="#fde047" stroke-width="4" stroke-linecap="round">
+                <line x1="60" y1="8" x2="60" y2="20" />
+                <line x1="60" y1="100" x2="60" y2="112" />
+                <line x1="8" y1="60" x2="20" y2="60" />
+                <line x1="100" y1="60" x2="112" y2="60" />
+                <line x1="23" y1="23" x2="32" y2="32" />
+                <line x1="88" y1="88" x2="97" y2="97" />
+                <line x1="97" y1="23" x2="88" y2="32" />
+                <line x1="32" y1="88" x2="23" y2="97" />
+              </g>
+            </svg>
+          </div>
+          <div class="heat-waves">
+            <svg width="260" height="28" viewBox="0 0 260 28" fill="none">
+              <path d="M20 24 Q28 14 20 4 M80 24 Q88 14 80 4 M140 24 Q148 14 140 4 M200 24 Q208 14 200 4 M245 24 Q253 14 245 4" stroke="#fef08a" stroke-width="3" stroke-linecap="round"/>
+            </svg>
+          </div>
+        </div>
+
+        <p class="param-desc" id="sunDesc">
+          Strong afternoon sunlight is warming the upper leaves; light intensity peaks around noon.
+        </p>
+      </article>
+
+      <!-- PARAMETER 2: SURFACE WATER & ROOT SOIL MOISTURE (Above & Below Ground Levels) -->
+      <article class="param-card">
+        <div class="param-header">
+          <div class="param-heading-text">
+            <h3 class="param-title">Surface & Root Moisture</h3>
+            <span class="param-status-label" id="waterLabel">Dry Top & Thirsty Roots</span>
+          </div>
+          <div class="traffic-light" id="tlWater">
+            <span class="tl-lens tl-red on"></span>
+            <span class="tl-lens tl-yellow"></span>
+            <span class="tl-lens tl-green"></span>
+          </div>
+        </div>
+
+        <div class="visual-stage water-stage state-dry" id="stageWater" onclick="cycleWaterState()">
+          <span class="stage-badge" id="waterBadge">Above: Dry | Roots: Low</span>
+          <span class="zone-label-top" id="aboveZoneTxt">Above Ground: Dry Surface</span>
+          <span class="zone-label-bottom" id="belowZoneTxt">Below Ground: Low Root Moisture</span>
+
+          <div class="above-water-layer"></div>
+          <div class="ground-crust-line"></div>
+          <div class="below-moisture-layer"></div>
+
+          <svg class="plant-roots-svg" viewBox="0 0 360 185" preserveAspectRatio="none">
+            <path d="M120 88 Q112 62 102 48 M120 88 Q128 60 138 46 M240 88 Q232 62 222 48 M240 88 Q248 60 258 46" stroke="#16a34a" stroke-width="4" stroke-linecap="round" fill="none"/>
+            <path d="M120 92 L120 158 M120 112 L96 136 M120 124 L144 148 M120 140 L104 166 M240 92 L240 162 M240 110 L216 138 M240 126 L264 150 M240 142 L226 168" stroke="#fde68a" stroke-width="3" stroke-linecap="round" fill="none"/>
+          </svg>
+        </div>
+
+        <p class="param-desc" id="waterDesc">
+          No standing moisture remains above ground, and deep root-zone dampness has dropped low.
+        </p>
+      </article>
+
+      <!-- PARAMETER 3: WIND & CANOPY AIRFLOW -->
+      <article class="param-card">
+        <div class="param-header">
+          <div class="param-heading-text">
+            <h3 class="param-title">Wind & Canopy Airflow</h3>
+            <span class="param-status-label" id="windLabel">Fresh Steady Breeze</span>
+          </div>
+          <div class="traffic-light" id="tlWind">
+            <span class="tl-lens tl-red"></span>
+            <span class="tl-lens tl-yellow"></span>
+            <span class="tl-lens tl-green on"></span>
+          </div>
+        </div>
+
+        <div class="visual-stage wind-stage level-2" id="stageWind" onclick="cycleWindLevel()">
+          <span class="stage-badge" id="windBadge">Airflow: Fresh Breeze</span>
+          <svg width="100%" height="100%" viewBox="0 0 360 185" preserveAspectRatio="none">
+            <path class="wind-streak" d="M20 45 Q110 30 200 45 T340 42" stroke="#0284c7" stroke-width="3.5" stroke-linecap="round" fill="none"/>
+            <path class="wind-streak" d="M10 80 Q100 65 190 80 T350 76" stroke="#38bdf8" stroke-width="3" stroke-linecap="round" fill="none"/>
+            <path class="wind-streak" d="M40 112 Q130 98 220 112 T345 108" stroke="#0ea5e9" stroke-width="2.5" stroke-linecap="round" fill="none"/>
+
+            <g class="stalks-group">
+              <path d="M90 185 Q95 125 105 75" stroke="#15803d" stroke-width="5" stroke-linecap="round" fill="none"/>
+              <ellipse cx="107" cy="68" rx="6" ry="16" transform="rotate(15 107 68)" fill="#eab308"/>
+
+              <path d="M150 185 Q156 120 168 65" stroke="#16a34a" stroke-width="5.5" stroke-linecap="round" fill="none"/>
+              <ellipse cx="171" cy="58" rx="6.5" ry="18" transform="rotate(18 171 58)" fill="#f59e0b"/>
+
+              <path d="M210 185 Q216 122 228 70" stroke="#15803d" stroke-width="5" stroke-linecap="round" fill="none"/>
+              <ellipse cx="231" cy="62" rx="6" ry="16" transform="rotate(16 231 62)" fill="#eab308"/>
+
+              <path d="M270 185 Q275 128 285 80" stroke="#16a34a" stroke-width="5" stroke-linecap="round" fill="none"/>
+              <ellipse cx="288" cy="72" rx="6" ry="15" transform="rotate(14 288 72)" fill="#f59e0b"/>
+            </g>
+            <rect x="0" y="173" width="360" height="12" fill="#14532d"/>
+          </svg>
+        </div>
+
+        <p class="param-desc" id="windDesc">
+          Gentle breeze moves cleanly through the stalks, keeping leaves ventilated and cool.
+        </p>
+      </article>
+
+      <!-- PARAMETER 4: AIR HUMIDITY & LEAF DEW -->
+      <article class="param-card">
+        <div class="param-header">
+          <div class="param-heading-text">
+            <h3 class="param-title">Air Humidity & Dew</h3>
+            <span class="param-status-label" id="humLabel">Balanced Morning Dew</span>
+          </div>
+          <div class="traffic-light" id="tlHum">
+            <span class="tl-lens tl-red"></span>
+            <span class="tl-lens tl-yellow"></span>
+            <span class="tl-lens tl-green on"></span>
+          </div>
+        </div>
+
+        <div class="visual-stage humidity-stage level-2" id="stageHum" onclick="cycleHumLevel()">
+          <span class="stage-badge" id="humBadge">Atmosphere: Balanced Dew</span>
+          <svg width="240" height="165" viewBox="0 0 240 165" fill="none">
+            <path d="M35 125 C45 55, 130 25, 205 32 C195 105, 125 142, 35 125 Z" fill="#16a34a" stroke="#14532d" stroke-width="3"/>
+            <path d="M38 123 Q118 82 198 36" stroke="#bbf7d0" stroke-width="3.5" stroke-linecap="round"/>
+            <path class="dew-drop" d="M115 62 C115 62, 103 78, 103 86 A12 12 0 1 0 127 86 C127 78, 115 62, 115 62 Z" fill="#38bdf8" stroke="#ffffff" stroke-width="2"/>
+            <path class="dew-drop dew-extra" d="M155 48 C155 48, 146 60, 146 66 A9 9 0 1 0 164 66 C164 60, 155 48, 155 48 Z" fill="#7dd3fc" stroke="#ffffff" stroke-width="1.5"/>
+            <path class="dew-drop dew-extra" d="M82 88 C82 88, 72 102, 72 109 A10 10 0 1 0 92 109 C92 102, 82 88, 82 88 Z" fill="#38bdf8" stroke="#ffffff" stroke-width="2"/>
+            <path class="dew-drop dew-extra" d="M142 84 C142 84, 134 95, 134 101 A8 8 0 1 0 150 101 C150 95, 142 84, 142 84 Z" fill="#bae6fd" stroke="#ffffff" stroke-width="1.5"/>
+          </svg>
+        </div>
+
+        <p class="param-desc" id="humDesc">
+          Clean air humidity prevents leaf fungal buildup while keeping foliage supple.
+        </p>
+      </article>
+
+      <!-- PARAMETER 5: SOIL VITALITY & NUTRIENTS -->
+      <article class="param-card">
+        <div class="param-header">
+          <div class="param-heading-text">
+            <h3 class="param-title">Soil Vitality & Nutrients</h3>
+            <span class="param-status-label" id="soilLabel">Rich & Active Earth</span>
+          </div>
+          <div class="traffic-light" id="tlSoil">
+            <span class="tl-lens tl-red"></span>
+            <span class="tl-lens tl-yellow"></span>
+            <span class="tl-lens tl-green on"></span>
+          </div>
+        </div>
+
+        <div class="visual-stage soil-stage level-3" id="stageSoil" onclick="cycleSoilLevel()">
+          <span class="stage-badge" id="soilBadge">Soil Reserves: Rich</span>
+          <svg width="100%" height="100%" viewBox="0 0 360 185" preserveAspectRatio="none">
+            <path d="M180 44 L165 14 M180 44 L180 10 M180 44 L195 14" stroke="#15803d" stroke-width="5" stroke-linecap="round"/>
+            <path d="M180 45 L180 165 M180 70 L135 110 M180 75 L225 115 M180 105 L145 145 M180 110 L215 150" stroke="#fef3c7" stroke-width="3.5" stroke-linecap="round" fill="none"/>
+            <circle class="nutrient-orb" cx="120" cy="85" r="8" fill="#facc15"/>
+            <circle class="nutrient-orb" cx="240" cy="90" r="8" fill="#4ade80"/>
+            <circle class="nutrient-orb nut-mid" cx="100" cy="135" r="9" fill="#f59e0b"/>
+            <circle class="nutrient-orb nut-mid" cx="260" cy="140" r="9" fill="#facc15"/>
+            <circle class="nutrient-orb nut-high" cx="150" cy="155" r="7" fill="#4ade80"/>
+            <circle class="nutrient-orb nut-high" cx="210" cy="160" r="7" fill="#f59e0b"/>
+            <circle class="nutrient-orb nut-high" cx="80" cy="105" r="6" fill="#fde047"/>
+            <circle class="nutrient-orb nut-high" cx="285" cy="110" r="6" fill="#4ade80"/>
+          </svg>
+        </div>
+
+        <p class="param-desc" id="soilDesc">
+          Fertile clay structure holds minerals firmly and feeds deep root expansion.
+        </p>
+      </article>
+    </section>
+
+    <!-- ==========================================
+         TAB 2: CLIMATE SHOCK TIME-SHIFT WARNINGS & WORLD MAP PINS
+         ========================================== -->
+    <section id="panelAdvice" class="tab-panel">
+      <div class="section-intro">
+        <div>
+          <h2>Warnings & Tips</h2>
+          <p id="adviceSubIntro">Ahead-of-time protection from matching sister farms</p>
+        </div>
+        <button class="tap-hint" id="demoModeSwitch" onclick="toggleAdviceMode()">Switch to Local Mode</button>
+      </div>
+
+      <!-- Sister-Farm Time-Shift Lookout Banner -->
+      <div class="climate-bridge-card" id="climateBridgeCard">
+        <div class="bridge-top-pill">
+          <span class="pulse-beacon"></span>
+          <span id="bannerModeBadge">Early Lookout • Sister Farm Hit First</span>
+        </div>
+
+        <!-- Visual Time-Shift Relay with World Map Pin Graphic beside each City/Country -->
+        <div class="time-shift-relay" id="timeShiftRelayBox">
+          <div class="relay-step hit-first">
+            <span class="relay-time-tag">Hit First (Earlier)</span>
+            <div class="city-pin-row">
+              <strong class="relay-city" id="sisterCityName">Punjab, India</strong>
+              <div class="world-pin-thumb" id="sisterWorldPin" title="Sister Farm Location on World Map"></div>
+            </div>
+            <span class="relay-event" id="sisterEventTag">⛈️ Sudden Rainstorm</span>
+          </div>
+
+          <div class="wave-transit">
+            <span>🌊➔</span>
+            <small>Same Wave</small>
+          </div>
+
+          <div class="relay-step your-turn">
+            <span class="relay-time-tag">Heading to You</span>
+            <div class="city-pin-row">
+              <strong class="relay-city" id="yourMatchedCity">Nakuru, Kenya</strong>
+              <div class="world-pin-thumb" id="yourWorldPin" title="Your Field Location on World Map"></div>
+            </div>
+            <span class="relay-event">🛡️ Protect Now</span>
+          </div>
+        </div>
+
+        <!-- Local Mode City + World Pin Graphic -->
+        <div class="local-city-pin-bar" id="localCityPinBar">
+          <div>
+            <div class="relay-time-tag" style="color:#86efac;">Pinned Field Location</div>
+            <strong class="relay-city" id="localPinnedCityName">Faiyum, Egypt</strong>
+          </div>
+          <div class="world-pin-thumb" id="localWorldPin" title="Pinned Location on World Map"></div>
+        </div>
+
+        <div class="shared-traits-row" id="sharedTraitsRow">
+          <span class="trait-chip">🧱 Same Soil</span>
+          <span class="trait-chip">🌾 Same Crop</span>
+          <span class="trait-chip">🌊 Same Weather Wave</span>
+        </div>
+
+        <p class="bridge-story-text" id="bannerStoryText">
+          Unpredictable weather is hard to read alone. A sister farm in Punjab with your exact soil and crop was just hit by a sudden heavy rainstorm along your shared weather wave—giving you time to protect your field before it arrives.
+        </p>
+      </div>
+
+      <!-- Card 1: Sudden Climate Event Heading Your Way -->
+      <article class="advice-card card-danger" id="advCard1">
+        <div class="advice-top-bar">
+          <span class="advice-pill pill-danger" id="advPill1">🚨 Sudden Weather Heading Your Way</span>
+          <div class="traffic-light" id="advTl1">
+            <span class="tl-lens tl-red on"></span>
+            <span class="tl-lens tl-yellow"></span>
+            <span class="tl-lens tl-green"></span>
+          </div>
+        </div>
+        <div class="advice-hero-visual bg-danger-soft" id="advBg1">
+          <span class="hero-emoji-main" id="advIcon1">⛈️🌊</span>
+        </div>
+        <h3 class="advice-title" id="advTitle1">Sudden Heavy Rainstorm & Squalls Approaching</h3>
+        <p class="advice-desc" id="advDesc1">
+          The same sudden downpour that flooded sister farms in India is moving along your weather wave and is very likely to hit your field next.
+        </p>
+      </article>
+
+      <!-- Card 2: How It Damaged Sister Farms & What to Stop -->
+      <article class="advice-card card-caution" id="advCard2">
+        <div class="advice-top-bar">
+          <span class="advice-pill pill-caution" id="advPill2">⚠️ Stop Before It Hits</span>
+          <div class="traffic-light" id="advTl2">
+            <span class="tl-lens tl-red"></span>
+            <span class="tl-lens tl-yellow on"></span>
+            <span class="tl-lens tl-green"></span>
+          </div>
+        </div>
+        <div class="advice-hero-visual bg-caution-soft" id="advBg2">
+          <span class="hero-emoji-main" id="advIcon2">💦🚫</span>
+        </div>
+        <h3 class="advice-title" id="advTitle2">Stop Irrigation & Fertilizer Immediately</h3>
+        <p class="advice-desc" id="advDesc2">
+          Sister farms that irrigated right before the sudden rainstorm suffered waterlogged, suffocated roots and lost washed-away fertilizer.
+        </p>
+      </article>
+
+      <!-- Card 3: Protective Action That Saved Sister Farms -->
+      <article class="advice-card card-good" id="advCard3">
+        <div class="advice-top-bar">
+          <span class="advice-pill pill-good" id="advPill3">✅ How to Protect Your Field Now</span>
+          <div class="traffic-light" id="advTl3">
+            <span class="tl-lens tl-red"></span>
+            <span class="tl-lens tl-yellow"></span>
+            <span class="tl-lens tl-green on"></span>
+          </div>
+        </div>
+        <div class="advice-hero-visual bg-good-soft" id="advBg3">
+          <span class="hero-emoji-main" id="advIcon3">🚜🛡️</span>
+        </div>
+        <h3 class="advice-title" id="advTitle3">Clear Drainage Channels & Soil Furrows Now</h3>
+        <p class="advice-desc" id="advDesc3">
+          Sister farms that opened water runoff trenches and supported weak stems before the storm drained excess rain safely and saved their harvest.
+        </p>
+      </article>
+    </section>
+  </main>
+
+  <script>
+    // Known Cities Database with Coordinates for Both Cities + Sister Farms
+    const CITIES_DB = [
+      {
+        name: "Nakuru, Kenya", lat: -0.3031, lon: 36.0800,
+        sun: 2, water: "balanced", wind: 3, hum: 3, soil: 3,
+        hasGlobalMatch: true,
+        sisterCity: "Punjab, India",
+        sisterLat: 30.9010, sisterLon: 75.8573,
+        sisterEventTag: "⛈️ Sudden Rainstorm",
+        traits: ["🧱 Same Loam Soil", "🌾 Same Grain Crop", "🌊 Same Weather Wave"],
+        story: "Unpredictable weather is hard to read alone. A sister farm in Punjab with your exact soil and crop was just hit by a sudden heavy rainstorm along your shared weather wave—giving you time to protect your field before it arrives.",
+        adv1: { light: "red", icon: "⛈️🌊", title: "Sudden Heavy Rainstorm & Squalls Approaching", desc: "The same sudden downpour that flooded sister farms in India is moving along your weather wave and is very likely to hit your field next." },
+        adv2: { light: "yellow", icon: "💦🚫", title: "Stop Irrigation & Fertilizer Immediately", desc: "Sister farms that irrigated right before the sudden rainstorm suffered waterlogged, suffocated roots and lost washed-away fertilizer." },
+        adv3: { light: "green", icon: "🚜🛡️", title: "Clear Drainage Channels & Soil Furrows Now", desc: "Sister farms that opened water runoff trenches and supported weak stems before the storm drained excess rain safely and saved their harvest." },
+        localFallback: {
+          story: "No sudden distant climate shock is heading toward Nakuru right now. Here is your simple outlook based on your field's current state.",
+          c1: { light: "green", icon: "🌤️🌱", title: "Steady Local Growing Conditions", desc: "Your loam soil holds balanced moisture and healthy nutrient reserves for steady crop progress." },
+          c2: { light: "yellow", icon: "💨🚫", title: "Avoid Midday Overhead Sprinkling", desc: "Breezy afternoon air blows fine spray away from roots; keep watering close to the soil." },
+          c3: { light: "green", icon: "🌅💧", title: "Maintain Calm Evening Watering", desc: "Follow your regular dusk irrigation routine once topsoil begins to dry." }
+        }
+      },
+      {
+        name: "Dakahlia, Egypt", lat: 31.0409, lon: 31.3785,
+        sun: 2, water: "dry", wind: 2, hum: 2, soil: 3,
+        hasGlobalMatch: true,
+        sisterCity: "Punjab, India",
+        sisterLat: 30.9010, sisterLon: 75.8573,
+        sisterEventTag: "🌪️ Hot Dusty Wind",
+        traits: ["🧱 Same Alluvial Clay", "🌾 Same Wheat Crop", "🌊 Same Weather Wave"],
+        story: "Climate shifts make sudden dry winds hard to predict. Sister wheat farms in Punjab sharing your alluvial clay and moving weather wave were just struck by a hot dusty wind surge—here is how to prepare before it reaches you.",
+        adv1: { light: "red", icon: "🌪️🔥", title: "Sudden Hot Dusty Wind Wave Heading Your Way", desc: "Dry gusty winds that rapidly dried sister farms in India are moving along your weather wave and will pull moisture from leaves soon." },
+        adv2: { light: "yellow", icon: "☀️🚫", title: "Do Not Spray Leaves Before Wind Arrives", desc: "Sister farms that applied foliar sprays right before the hot wind suffered severe leaf scorch and wasted inputs." },
+        adv3: { light: "green", icon: "🌙💦", title: "Soak Clay Roots Tonight Before Wind Hits", desc: "Sister farms that watered deeply after sunset ahead of the wind wave kept their roots cool and prevented grain shrinkage." },
+        localFallback: {
+          story: "No sudden distant climate shock is heading toward Dakahlia right now. Here is your simple outlook based on your clay soil today.",
+          c1: { light: "yellow", icon: "🌤️💧", title: "Root Moisture Tapering Gradually", desc: "Sunny afternoons are slowly drawing moisture from your clay soil; plan a light watering soon." },
+          c2: { light: "yellow", icon: "🕛🚫", title: "Avoid Heavy Flood Watering", desc: "Over-flooding heavy clay can trap water around roots; keep watering light and even." },
+          c3: { light: "green", icon: "🌾✅", title: "Schedule Light Dusk Irrigation", desc: "A gentle evening watering within the next two days will keep wheat stalks thriving." }
+        }
+      },
+      {
+        name: "New Cairo, Egypt", lat: 30.0074, lon: 31.4913,
+        sun: 3, water: "dry", wind: 2, hum: 1, soil: 1,
+        hasGlobalMatch: true,
+        sisterCity: "Fresno, USA",
+        sisterLat: 36.7378, sisterLon: -119.7871,
+        sisterEventTag: "🔥 Sudden Heat Spike",
+        traits: ["🏜️ Same Sandy Soil", "☀️ Same Desert Sun", "🌊 Same Weather Wave"],
+        story: "Sister sandy farms in Fresno sharing your soil and global weather wave just experienced an unexpected heat spike. Their field outcome gives you advance time to shield your roots.",
+        adv1: { light: "red", icon: "🏜️🔥", title: "Sudden Extreme Heat Spike Approaching", desc: "An intense dry heat wave that stressed sister sandy farms is moving your way and will drain sandy moisture within hours." },
+        adv2: { light: "yellow", icon: "🌊🚫", title: "Avoid Single Heavy Flood Doses", desc: "Sister sandy farms saw heavy single watering and fertilizer wash straight past the roots during the heat spike." },
+        adv3: { light: "green", icon: "💧🌱", title: "Switch to Short Evening Drip Pulses", desc: "Sister farms that split watering into brief dusk sessions and covered bare sand with mulch protected their roots." },
+        localFallback: {
+          story: "No sudden distant climate shock is active right now. Here is your simple daily outlook for sandy desert-edge soil.",
+          c1: { light: "yellow", icon: "☀️🏜️", title: "Top Sand Warms Quickly by Noon", desc: "Direct sunshine warms open sandy rows fast, requiring steady dusk moisture." },
+          c2: { light: "yellow", icon: "🧪🚫", title: "Avoid Dry-Soil Fertilizer Application", desc: "Always dampen sandy soil lightly before feeding nutrients." },
+          c3: { light: "green", icon: "🌿💧", title: "Keep Light Mulch Over Rows", desc: "Covering bare sand with light crop residue holds coolness around young roots." }
+        }
+      },
+      {
+        name: "Faiyum, Egypt", lat: 29.3084, lon: 30.8428,
+        sun: 2, water: "balanced", wind: 2, hum: 2, soil: 3,
+        hasGlobalMatch: false,
+        sisterCity: "—",
+        sisterLat: 29.3084, sisterLon: 30.8428,
+        sisterEventTag: "",
+        traits: [],
+        story: "",
+        adv1: { light: "green", icon: "🌱☀️", title: "Steady Growing Conditions Ahead", desc: "Warm days and balanced root dampness support healthy crop progress over the coming days." },
+        adv2: { light: "yellow", icon: "🕛🚫", title: "Avoid Daytime Surface Watering", desc: "Daytime watering speeds up evaporation and can leave mineral crust on basin topsoil." },
+        adv3: { light: "green", icon: "🌅💧", title: "Keep Regular Sundown Watering", desc: "Continue watering after sunset to keep your silty clay supple and salt-free." },
+        localFallback: {
+          story: "No sudden climate shock is approaching Faiyum from sister farms right now. Here is your simple forecast based on your field's current state.",
+          c1: { light: "green", icon: "🌱☀️", title: "Steady Growing Conditions Ahead", desc: "Warm days and balanced root dampness support healthy crop progress over the coming days." },
+          c2: { light: "yellow", icon: "🕛🚫", title: "Avoid Daytime Surface Watering", desc: "Daytime watering speeds up evaporation and can leave mineral crust on basin topsoil." },
+          c3: { light: "green", icon: "🌅💧", title: "Keep Regular Sundown Watering", desc: "Continue watering after sunset to keep your silty clay supple and salt-free." }
+        }
+      },
+      {
+        name: "Minya, Egypt", lat: 28.0871, lon: 30.7618,
+        sun: 3, water: "balanced", wind: 1, hum: 1, soil: 3,
+        hasGlobalMatch: false,
+        sisterCity: "—",
+        sisterLat: 28.0871, sisterLon: 30.7618,
+        sisterEventTag: "",
+        traits: [],
+        story: "",
+        adv1: { light: "yellow", icon: "☀️🌾", title: "Warm Afternoons Ahead in Valley", desc: "Bright Upper Egypt sunshine will continue warming upper leaves while deep loam holds steady." },
+        adv2: { light: "yellow", icon: "🧪🚫", title: "Avoid Afternoon Foliar Spraying", desc: "Save any leaf spraying for early morning before valley heat builds up." },
+        adv3: { light: "green", icon: "🌙🌊", title: "Maintain Deep Evening Watering", desc: "Your deep alluvial soil holds water well when replenished after sunset." },
+        localFallback: {
+          story: "No sudden climate shock is approaching Minya from sister farms right now. Here is your simple forecast based on your field's current state.",
+          c1: { light: "yellow", icon: "☀️🌾", title: "Warm Afternoons Ahead in Valley", desc: "Bright Upper Egypt sunshine will continue warming upper leaves while deep loam holds steady." },
+          c2: { light: "yellow", icon: "🧪🚫", title: "Avoid Afternoon Foliar Spraying", desc: "Save any leaf spraying for early morning before valley heat builds up." },
+          c3: { light: "green", icon: "🌙🌊", title: "Maintain Deep Evening Watering", desc: "Your deep alluvial soil holds water well when replenished after sunset." }
+        }
+      },
+      {
+        name: "Punjab, India", lat: 30.9010, lon: 75.8573,
+        sun: 2, water: "balanced", wind: 2, hum: 2, soil: 3,
+        hasGlobalMatch: true,
+        sisterCity: "Dakahlia, Egypt",
+        sisterLat: 31.0409, sisterLon: 31.3785,
+        sisterEventTag: "🌤️ Dry Heat Surge",
+        traits: ["🧱 Same Alluvial Clay", "🌾 Same Wheat Crop", "🌊 Same Weather Wave"],
+        story: "Sister wheat farms in Egypt sharing your clay richness and moving weather wave just experienced a dry heat surge. Here is how they kept grain weight strong.",
+        adv1: { light: "yellow", icon: "🌤️⏳", title: "Sudden Dry Spell Moving Your Way", desc: "Consecutive dry afternoons observed on sister farms are moving along your weather wave and will lower root moisture quickly." },
+        adv2: { light: "yellow", icon: "☀️🚫", title: "Avoid Midday Fertilizer Application", desc: "Sister farms saw midday inputs under bright sun reduce uptake and stress warm leaves." },
+        adv3: { light: "green", icon: "🌾✅", title: "Prepare Light Dusk Irrigation", desc: "Sister farms that shifted to light evening watering preserved strong grain weight." },
+        localFallback: {
+          story: "No sudden distant climate shock is active right now. Here is your simple local outlook for Punjab.",
+          c1: { light: "green", icon: "🌾🌤️", title: "Balanced Field Conditions Ahead", desc: "Current soil moisture and fresh breeze support steady crop growth." },
+          c2: { light: "yellow", icon: "☀️🚫", title: "Avoid Noon Spraying", desc: "Keep foliar care in early morning or dusk windows." },
+          c3: { light: "green", icon: "💧✅", title: "Follow Normal Evening Cycle", desc: "Maintain your regular evening irrigation schedule." }
+        }
+      },
+      {
+        name: "Fresno, USA", lat: 36.7378, lon: -119.7871,
+        sun: 3, water: "dry", wind: 3, hum: 1, soil: 2,
+        hasGlobalMatch: true,
+        sisterCity: "New Cairo, Egypt",
+        sisterLat: 30.0074, sisterLon: 31.4913,
+        sisterEventTag: "💨 Dry Wind Gusts",
+        traits: ["🏜️ Same Sandy Loam", "☀️ Same Solar Load", "🌊 Same Weather Wave"],
+        story: "Sister arid farms in Egypt sharing your sandy loam and moving weather wave were just hit by dry gusty winds. Their experience shows how to prevent rapid water loss.",
+        adv1: { light: "red", icon: "💨🔥", title: "Sudden Dry Wind Gusts Approaching", desc: "Gusty dry breezes combined with bright sun are moving your way and will strip topsoil moisture fast." },
+        adv2: { light: "yellow", icon: "💦🚫", title: "Stop Overhead Sprinkling in Wind", desc: "Sister farms saw daytime wind blow overhead water away before it reached roots." },
+        adv3: { light: "green", icon: "🌙💧", title: "Run Ground-Level Evening Irrigation", desc: "Sister farms that watered close to the soil at dusk retained deep root dampness." },
+        localFallback: {
+          story: "No sudden distant climate shock is active right now. Here is your simple local outlook for Fresno.",
+          c1: { light: "yellow", icon: "☀️💨", title: "Warm Breezy Days Ahead", desc: "Afternoon sun and breeze will steadily draw moisture from sandy loam." },
+          c2: { light: "yellow", icon: "💦🚫", title: "Avoid Midday Sprinkling", desc: "Reduce evaporation by avoiding daytime watering." },
+          c3: { light: "green", icon: "🌙💧", title: "Water After Sunset", desc: "Dusk ground watering keeps root zones cool." }
+        }
+      },
+      {
+        name: "Sinop, Brazil", lat: -11.8604, lon: -55.5091,
+        sun: 1, water: "wet", wind: 1, hum: 3, soil: 3,
+        hasGlobalMatch: true,
+        sisterCity: "Mato Grosso Belt",
+        sisterLat: -12.6819, sisterLon: -56.9211,
+        sisterEventTag: "🌧️ Cloudburst & Mist",
+        traits: ["🧱 Same Red Clay", "🌱 Same Lush Canopy", "🌊 Same Weather Wave"],
+        story: "Sister tropical farms sharing your red clay and humid weather wave were just hit by an unexpected heavy cloudburst followed by thick warm mist. Here is how they prevented crop loss.",
+        adv1: { light: "red", icon: "🌧️🍄", title: "Heavy Cloudburst & Fungal Surge Approaching", desc: "Sudden heavy rain followed by trapped warm humidity is moving your way, creating high risk of root waterlogging and leaf fungus." },
+        adv2: { light: "yellow", icon: "💧🚫", title: "Stop All Irrigation Immediately", desc: "Sister farms with already-wet red clay suffered root suffocation when extra water was added before the cloudburst." },
+        adv3: { light: "green", icon: "🛡️🍃", title: "Open Drainage & Apply Leaf Protection", desc: "Sister farms that cleared field runoff paths and applied preventative leaf protection before the mist arrived stayed healthy." },
+        localFallback: {
+          story: "No sudden distant climate shock is active right now. Here is your simple local outlook for Sinop.",
+          c1: { light: "green", icon: "🌧️🌱", title: "Ample Soil Moisture Reserves", desc: "Deep red clay holds generous moisture for healthy growth." },
+          c2: { light: "yellow", icon: "💧🚫", title: "Skip Unnecessary Watering", desc: "Let soil breathe before adding more water." },
+          c3: { light: "green", icon: "🍃✅", title: "Keep Row Airflow Clear", desc: "Ensure good air movement between dense crop rows." }
+        }
+      }
+    ];
+
+    let activeProfile = CITIES_DB[0];
+    let activeDisplayName = CITIES_DB[0].name;
+    let activeLat = CITIES_DB[0].lat;
+    let activeLon = CITIES_DB[0].lon;
+    let isExactCoordMode = false;
+    let isTightFieldZoom = true;
+    let mapLayerMode = "agro"; // 'agro' (Esri Agricultural Satellite) | 'climate' (NASA GIBS Vegetation & Climate Zone)
+    let isGlobalMode = true;
+
+    let leafletMap = null;
+    let agroSatLayer = null;
+    let terrainBaseLayer = null;
+    let nasaNdviClimateLayer = null;
+    let fieldMarker = null;
+
+    let currentSun = 2;
+    let currentWater = "balanced";
+    let currentWind = 3;
+    let currentHum = 3;
+    let currentSoil = 3;
+
+    function switchTab(tabName) {
+      const isField = tabName === 'field';
+      document.getElementById('tabBtnField').classList.toggle('active', isField);
+      document.getElementById('tabBtnAdvice').classList.toggle('active', !isField);
+      document.getElementById('panelField').classList.toggle('active', isField);
+      document.getElementById('panelAdvice').classList.toggle('active', !isField);
+
+      if (isField && leafletMap) {
+        setTimeout(() => leafletMap.invalidateSize(), 60);
+      }
+    }
+
+    function toggleLocationDrawer() {
+      const drawer = document.getElementById('locationDrawer');
+      const pill = document.getElementById('locationPillBtn');
+      const isOpen = drawer.classList.toggle('open');
+      pill.classList.toggle('open', isOpen);
+    }
+
+    /* ==========================================
+       AGRO-SATELLITE & NASA GIBS CLIMATE MINI-MAP (TAB 1)
+       ========================================== */
+    function initAgroClimateMap() {
+      if (typeof L === 'undefined' || leafletMap) return;
+
+      leafletMap = L.map('fieldMiniMap', {
+        center: [activeLat, activeLon],
+        zoom: 14,
+        zoomControl: false,
+        attributionControl: false
+      });
+
+      // Layer 1: High-Res Agricultural Satellite Imagery (Crop Fields, Plots, Irrigation)
+      agroSatLayer = L.tileLayer(
+        'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+        { maxZoom: 18 }
+      );
+
+      // Layer 2: Physical Climate Base + NASA GIBS MODIS Vegetation/Climate API
+      terrainBaseLayer = L.tileLayer(
+        'https://server.arcgisonline.com/ArcGIS/rest/services/World_Physical_Map/MapServer/tile/{z}/{y}/{x}',
+        { maxNativeZoom: 8, maxZoom: 16 }
+      );
+
+      nasaNdviClimateLayer = L.tileLayer(
+        'https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/MODIS_Terra_NDVI_8Day/default/default/GoogleMapsCompatible_Level9/{z}/{y}/{x}.png',
+        { maxNativeZoom: 8, maxZoom: 16, opacity: 0.82 }
+      );
+
+      agroSatLayer.addTo(leafletMap);
+
+      const customPin = L.divIcon({
+        className: '',
+        html: `<div class="agro-pin-wrapper"><div class="agro-pin-pulse"></div><div class="agro-pin-core"></div></div>`,
+        iconSize: [28, 28],
+        iconAnchor: [14, 14]
+      });
+
+      fieldMarker = L.marker([activeLat, activeLon], { icon: customPin }).addTo(leafletMap);
+    }
+
+    function updateFieldMiniMap() {
+      if (!leafletMap) {
+        initAgroClimateMap();
+      }
+
+      const titleEl = document.getElementById('miniMapTitleText');
+      const badgeEl = document.getElementById('miniMapBadge');
+      const zoomBtn = document.getElementById('zoomToggleBtn');
+      const layerBtn = document.getElementById('agroLayerBtn');
+      const legendPill = document.getElementById('climateLegendPill');
+
+      const targetZoom = mapLayerMode === 'agro'
+        ? (isTightFieldZoom ? 14 : 11)
+        : (isTightFieldZoom ? 9 : 6);
+
+      if (leafletMap) {
+        leafletMap.setView([activeLat, activeLon], targetZoom, { animate: true });
+        if (fieldMarker) {
+          fieldMarker.setLatLng([activeLat, activeLon]);
+        }
+
+        if (mapLayerMode === 'agro') {
+          if (leafletMap.hasLayer(terrainBaseLayer)) leafletMap.removeLayer(terrainBaseLayer);
+          if (leafletMap.hasLayer(nasaNdviClimateLayer)) leafletMap.removeLayer(nasaNdviClimateLayer);
+          if (!leafletMap.hasLayer(agroSatLayer)) agroSatLayer.addTo(leafletMap);
+        } else {
+          if (leafletMap.hasLayer(agroSatLayer)) leafletMap.removeLayer(agroSatLayer);
+          if (!leafletMap.hasLayer(terrainBaseLayer)) terrainBaseLayer.addTo(leafletMap);
+          if (!leafletMap.hasLayer(nasaNdviClimateLayer)) nasaNdviClimateLayer.addTo(leafletMap);
+        }
+      }
+
+      titleEl.innerText = mapLayerMode === 'agro'
+        ? `Agro Map • ${activeDisplayName}`
+        : `Climate Zone • ${activeDisplayName}`;
+
+      layerBtn.innerText = mapLayerMode === 'agro' ? '🌾 Agro Satellite' : '🌡️ Climate & NDVI';
+      legendPill.style.display = mapLayerMode === 'climate' ? 'inline-block' : 'none';
+
+      if (mapLayerMode === 'agro') {
+        badgeEl.innerText = isExactCoordMode
+          ? '🌾 Crop Fields • Zoomed to Coordinates'
+          : '🌾 Crop Fields • Zoomed to City';
+      } else {
+        badgeEl.innerText = '🌡️ Vegetation & Climate Division';
+      }
+
+      zoomBtn.innerText = isTightFieldZoom ? '🔍 Field Zoom' : '🗺️ Region Zoom';
+    }
+
+    function toggleAgroClimateLayer() {
+      mapLayerMode = mapLayerMode === 'agro' ? 'climate' : 'agro';
+      updateFieldMiniMap();
+    }
+
+    function toggleMapZoom() {
+      isTightFieldZoom = !isTightFieldZoom;
+      updateFieldMiniMap();
+    }
+
+    /* ==========================================
+       WORLD MAP WITH PIN GRAPHIC GENERATOR (TAB 2)
+       ========================================== */
+    function buildWorldMapPinSVG(lat, lon, pinColor = '#ef4444') {
+      const x = Math.max(10, Math.min(230, ((lon + 180) / 360) * 240));
+      const y = Math.max(14, Math.min(112, ((90 - lat) / 180) * 120));
+
+      return `
+        <svg viewBox="0 0 240 120" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <linearGradient id="oceanGrad" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stop-color="#0369a1"/>
+              <stop offset="100%" stop-color="#0c4a6e"/>
+            </linearGradient>
+          </defs>
+          <rect width="240" height="120" fill="url(#oceanGrad)"/>
+          <g stroke="rgba(255,255,255,0.12)" stroke-width="0.6">
+            <line x1="0" y1="60" x2="240" y2="60"/>
+            <line x1="120" y1="0" x2="120" y2="120"/>
+            <line x1="60" y1="0" x2="60" y2="120"/>
+            <line x1="180" y1="0" x2="180" y2="120"/>
+          </g>
+          <g fill="#4ade80" fill-opacity="0.88" stroke="#14532d" stroke-width="0.7">
+            <path d="M 18 20 L 42 14 L 78 14 L 96 22 L 84 34 L 72 36 L 62 46 L 54 53 L 46 47 L 38 38 L 32 28 L 18 24 Z"/>
+            <path d="M 84 10 L 104 8 L 106 18 L 90 21 Z"/>
+            <path d="M 66 54 L 82 54 L 97 64 L 94 78 L 82 96 L 74 103 L 71 86 L 65 68 Z"/>
+            <path d="M 114 34 L 116 24 L 128 15 L 148 15 L 152 28 L 142 35 L 126 36 Z"/>
+            <path d="M 114 37 L 136 37 L 145 40 L 153 54 L 148 70 L 138 85 L 131 85 L 127 66 L 113 56 L 111 45 Z"/>
+            <path d="M 150 16 L 196 15 L 216 22 L 210 36 L 196 46 L 184 54 L 176 44 L 170 48 L 164 39 L 152 38 Z"/>
+            <path d="M 186 70 L 210 68 L 218 80 L 208 90 L 188 86 Z"/>
+          </g>
+          <circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="10" fill="${pinColor}" fill-opacity="0.32"/>
+          <circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="4.5" fill="#ffffff" fill-opacity="0.9"/>
+          <g transform="translate(${x.toFixed(1)}, ${y.toFixed(1)})">
+            <path d="M 0 0 C -5 -7, -9 -12, -9 -17 A 9 9 0 1 1 9 -17 C 9 -12, 5 -7, 0 0 Z" fill="${pinColor}" stroke="#ffffff" stroke-width="1.6"/>
+            <circle cx="0" cy="-17" r="3.2" fill="#ffffff"/>
+          </g>
+        </svg>
+      `;
+    }
+
+    function setTrafficLight(id, color) {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.querySelector('.tl-red').classList.toggle('on', color === 'red');
+      el.querySelector('.tl-yellow').classList.toggle('on', color === 'yellow');
+      el.querySelector('.tl-green').classList.toggle('on', color === 'green');
+    }
+
+    /* ==========================================
+       DYNAMIC RENDERERS FOR ALL 5 VISUAL STAGES
+       ========================================== */
+    function renderSun(level) {
+      currentSun = level;
+      const stage = document.getElementById('stageSun');
+      stage.className = `visual-stage sun-stage level-${level}`;
+      if (level === 1) {
+        setTrafficLight('tlSun', 'green');
+        document.getElementById('sunLabel').innerText = 'Gentle Morning Warmth';
+        document.getElementById('sunBadge').innerText = 'Light Intensity: Mild';
+        document.getElementById('sunDesc').innerText = 'Soft sunlight supports steady leaf growth without any heat stress.';
+      } else if (level === 2) {
+        setTrafficLight('tlSun', 'yellow');
+        document.getElementById('sunLabel').innerText = 'Bright Midday Sun';
+        document.getElementById('sunBadge').innerText = 'Light Intensity: Moderate-High';
+        document.getElementById('sunDesc').innerText = 'Strong afternoon sunlight is warming the upper leaves; light intensity peaks around noon.';
+      } else {
+        setTrafficLight('tlSun', 'red');
+        document.getElementById('sunLabel').innerText = 'Intense Scorching Heat';
+        document.getElementById('sunBadge').innerText = 'Light Intensity: Extreme';
+        document.getElementById('sunDesc').innerText = 'Harsh solar radiation is radiating intense heat across the canopy; plants need root moisture.';
+      }
+    }
+    function cycleSunLevel() { renderSun(currentSun === 3 ? 1 : currentSun + 1); }
+
+    function renderWater(state) {
+      currentWater = state;
+      const stage = document.getElementById('stageWater');
+      stage.className = `visual-stage water-stage state-${state}`;
+      if (state === 'dry') {
+        setTrafficLight('tlWater', 'red');
+        document.getElementById('waterLabel').innerText = 'Dry Top & Thirsty Roots';
+        document.getElementById('waterBadge').innerText = 'Above: Dry | Roots: Low';
+        document.getElementById('aboveZoneTxt').innerText = 'Above Ground: Dry Surface';
+        document.getElementById('belowZoneTxt').innerText = 'Below Ground: Low Root Moisture';
+        document.getElementById('waterDesc').innerText = 'No standing moisture remains above ground, and deep root-zone dampness has dropped low.';
+      } else if (state === 'balanced') {
+        setTrafficLight('tlWater', 'green');
+        document.getElementById('waterLabel').innerText = 'Light Dew & Healthy Roots';
+        document.getElementById('waterBadge').innerText = 'Above: Light Film | Roots: Ideal';
+        document.getElementById('aboveZoneTxt').innerText = 'Above Ground: Light Moisture Film';
+        document.getElementById('belowZoneTxt').innerText = 'Below Ground: Balanced Root Zone';
+        document.getElementById('waterDesc').innerText = 'Surface holds light dampness while deep sub-soil surrounds roots with ideal moisture.';
+      } else {
+        setTrafficLight('tlWater', 'yellow');
+        document.getElementById('waterLabel').innerText = 'Pooled Surface & Full Subsoil';
+        document.getElementById('waterBadge').innerText = 'Above: Pooled | Roots: Saturated';
+        document.getElementById('aboveZoneTxt').innerText = 'Above Ground: Standing Water Level';
+        document.getElementById('belowZoneTxt').innerText = 'Below Ground: Full Saturation';
+        document.getElementById('waterDesc').innerText = 'Surface water sits visibly above the ground and subsoil is completely saturated; pause watering.';
+      }
+    }
+    function cycleWaterState() {
+      renderWater(currentWater === 'dry' ? 'balanced' : currentWater === 'balanced' ? 'wet' : 'dry');
+    }
+
+    function renderWind(level) {
+      currentWind = level;
+      const stage = document.getElementById('stageWind');
+      stage.className = `visual-stage wind-stage level-${level}`;
+      if (level === 1) {
+        setTrafficLight('tlWind', 'yellow');
+        document.getElementById('windLabel').innerText = 'Still & Calm Air';
+        document.getElementById('windBadge').innerText = 'Airflow: Calm';
+        document.getElementById('windDesc').innerText = 'Very little air movement between stalks; warm air lingers inside dense leaves.';
+      } else if (level === 2) {
+        setTrafficLight('tlWind', 'green');
+        document.getElementById('windLabel').innerText = 'Fresh Steady Breeze';
+        document.getElementById('windBadge').innerText = 'Airflow: Fresh Breeze';
+        document.getElementById('windDesc').innerText = 'Gentle breeze moves cleanly through the stalks, keeping leaves ventilated and cool.';
+      } else {
+        setTrafficLight('tlWind', 'red');
+        document.getElementById('windLabel').innerText = 'Strong Gusty Winds';
+        document.getElementById('windBadge').innerText = 'Airflow: Strong Gusts';
+        document.getElementById('windDesc').innerText = 'Strong wind gusts are bending stalks and accelerating moisture evaporation from leaves.';
+      }
+    }
+    function cycleWindLevel() { renderWind(currentWind === 3 ? 1 : currentWind + 1); }
+
+    function renderHum(level) {
+      currentHum = level;
+      const stage = document.getElementById('stageHum');
+      stage.className = `visual-stage humidity-stage level-${level}`;
+      if (level === 1) {
+        setTrafficLight('tlHum', 'yellow');
+        document.getElementById('humLabel').innerText = 'Dry Crisp Air';
+        document.getElementById('humBadge').innerText = 'Atmosphere: Dry Air';
+        document.getElementById('humDesc').innerText = 'Air feels very dry with minimal morning dew; leaves lose moisture faster.';
+      } else if (level === 2) {
+        setTrafficLight('tlHum', 'green');
+        document.getElementById('humLabel').innerText = 'Balanced Morning Dew';
+        document.getElementById('humBadge').innerText = 'Atmosphere: Balanced Dew';
+        document.getElementById('humDesc').innerText = 'Clean air humidity prevents leaf fungal buildup while keeping foliage supple.';
+      } else {
+        setTrafficLight('tlHum', 'red');
+        document.getElementById('humLabel').innerText = 'Heavy Humid Mist';
+        document.getElementById('humBadge').innerText = 'Atmosphere: Heavy Mist';
+        document.getElementById('humDesc').innerText = 'Thick moisture droplets cling to leaves; high risk of fungal spots if warmth persists.';
+      }
+    }
+    function cycleHumLevel() { renderHum(currentHum === 3 ? 1 : currentHum + 1); }
+
+    function renderSoil(level) {
+      currentSoil = level;
+      const stage = document.getElementById('stageSoil');
+      stage.className = `visual-stage soil-stage level-${level}`;
+      if (level === 1) {
+        setTrafficLight('tlSoil', 'red');
+        document.getElementById('soilLabel').innerText = 'Low Nutrient Reserves';
+        document.getElementById('soilBadge').innerText = 'Soil Reserves: Depleted';
+        document.getElementById('soilDesc').innerText = 'Soil reserves feel light and leached; roots need organic matter and split feeding.';
+      } else if (level === 2) {
+        setTrafficLight('tlSoil', 'yellow');
+        document.getElementById('soilLabel').innerText = 'Steady Mineral Hold';
+        document.getElementById('soilBadge').innerText = 'Soil Reserves: Moderate';
+        document.getElementById('soilDesc').innerText = 'Balanced soil structure supports steady growth; maintain scheduled seasonal feeding.';
+      } else {
+        setTrafficLight('tlSoil', 'green');
+        document.getElementById('soilLabel').innerText = 'Rich & Active Earth';
+        document.getElementById('soilBadge').innerText = 'Soil Reserves: Rich';
+        document.getElementById('soilDesc').innerText = 'Fertile clay structure holds minerals firmly and feeds deep root expansion.';
+      }
+    }
+    function cycleSoilLevel() { renderSoil(currentSoil === 3 ? 1 : currentSoil + 1); }
+
+    /* ==========================================
+       TAB 2 RENDERER: CLIMATE SHOCK TIME-SHIFT & WORLD PINS
+       ========================================== */
+    function styleAdviceCard(num, data, pillText) {
+      const card = document.getElementById(`advCard${num}`);
+      const pill = document.getElementById(`advPill${num}`);
+      const bg = document.getElementById(`advBg${num}`);
+
+      const map = {
+        red: { cardCls: 'card-danger', pillCls: 'pill-danger', bgCls: 'bg-danger-soft' },
+        yellow: { cardCls: 'card-caution', pillCls: 'pill-caution', bgCls: 'bg-caution-soft' },
+        green: { cardCls: 'card-good', pillCls: 'pill-good', bgCls: 'bg-good-soft' }
+      };
+      const style = map[data.light] || map.green;
+
+      card.className = `advice-card ${style.cardCls}`;
+      pill.className = `advice-pill ${style.pillCls}`;
+      pill.innerText = pillText;
+      bg.className = `advice-hero-visual ${style.bgCls}`;
+
+      setTrafficLight(`advTl${num}`, data.light);
+      document.getElementById(`advIcon${num}`).innerText = data.icon;
+      document.getElementById(`advTitle${num}`).innerText = data.title;
+      document.getElementById(`advDesc${num}`).innerText = data.desc;
+    }
+
+    function renderAdviceTab() {
+      const banner = document.getElementById('climateBridgeCard');
+      const relayBox = document.getElementById('timeShiftRelayBox');
+      const localPinBar = document.getElementById('localCityPinBar');
+      const traitsRow = document.getElementById('sharedTraitsRow');
+      const switchBtn = document.getElementById('demoModeSwitch');
+
+      if (isGlobalMode && activeProfile.hasGlobalMatch) {
+        banner.classList.remove('local-mode');
+        relayBox.style.display = 'grid';
+        localPinBar.style.display = 'none';
+        traitsRow.style.display = 'flex';
+        switchBtn.innerText = 'View Local Outlook';
+
+        document.getElementById('adviceSubIntro').innerText = 'Ahead-of-time protection from matching sister farms';
+        document.getElementById('bannerModeBadge').innerText = 'Early Lookout • Sister Farm Hit First';
+        document.getElementById('sisterCityName').innerText = activeProfile.sisterCity;
+        document.getElementById('sisterEventTag').innerText = activeProfile.sisterEventTag;
+        document.getElementById('yourMatchedCity').innerText = activeDisplayName;
+
+        document.getElementById('sisterWorldPin').innerHTML = buildWorldMapPinSVG(
+          activeProfile.sisterLat,
+          activeProfile.sisterLon,
+          '#ef4444'
+        );
+        document.getElementById('yourWorldPin').innerHTML = buildWorldMapPinSVG(
+          activeLat,
+          activeLon,
+          '#facc15'
+        );
+
+        traitsRow.innerHTML = activeProfile.traits.map(t => `<span class="trait-chip">${t}</span>`).join('');
+        document.getElementById('bannerStoryText').innerText = activeProfile.story;
+
+        styleAdviceCard(1, activeProfile.adv1, '🚨 Sudden Weather Heading Your Way');
+        styleAdviceCard(2, activeProfile.adv2, '⚠️ Stop Before It Hits');
+        styleAdviceCard(3, activeProfile.adv3, '✅ How to Protect Your Field Now');
+      } else {
+        banner.classList.add('local-mode');
+        relayBox.style.display = 'none';
+        localPinBar.style.display = 'flex';
+        traitsRow.style.display = 'none';
+        switchBtn.innerText = activeProfile.hasGlobalMatch ? 'View Sister-Farm Alert' : 'Local Outlook Active';
+
+        document.getElementById('localPinnedCityName').innerText = activeDisplayName;
+        document.getElementById('localWorldPin').innerHTML = buildWorldMapPinSVG(
+          activeLat,
+          activeLon,
+          '#22c55e'
+        );
+
+        const lf = activeProfile.localFallback;
+        document.getElementById('adviceSubIntro').innerText = 'Simple outlook based on your field today';
+        document.getElementById('bannerModeBadge').innerText = `Local Field Outlook • ${activeDisplayName}`;
+        document.getElementById('bannerStoryText').innerText = lf.story;
+
+        styleAdviceCard(1, lf.c1, '🌤️ Upcoming Field Outlook');
+        styleAdviceCard(2, lf.c2, '⚠️ Precaution to Keep');
+        styleAdviceCard(3, lf.c3, '✅ Recommended Routine');
+      }
+    }
+
+    function toggleAdviceMode() {
+      if (!activeProfile.hasGlobalMatch) return;
+      isGlobalMode = !isGlobalMode;
+      renderAdviceTab();
+    }
+
+    /* ==========================================
+       APPLY CITY PROFILE & COORDINATES TO ALL VIEWS
+       ========================================== */
+    function applyCityProfile(cityObj, customDisplayLabel = null, customLat = null, customLon = null, exactMode = false) {
+      activeProfile = cityObj;
+      activeDisplayName = customDisplayLabel || cityObj.name;
+      activeLat = customLat !== null ? customLat : cityObj.lat;
+      activeLon = customLon !== null ? customLon : cityObj.lon;
+      isExactCoordMode = exactMode;
+      isGlobalMode = cityObj.hasGlobalMatch;
+
+      document.getElementById('activeCityDisplay').innerText = activeDisplayName;
+      document.getElementById('locationFeedback').style.display = 'none';
+
+      updateFieldMiniMap();
+      renderSun(cityObj.sun);
+      renderWater(cityObj.water);
+      renderWind(cityObj.wind);
+      renderHum(cityObj.hum);
+      renderSoil(cityObj.soil);
+      renderAdviceTab();
+
+      document.getElementById('locationDrawer').classList.remove('open');
+      document.getElementById('locationPillBtn').classList.remove('open');
+    }
+
+    function findNearestCityProfile(lat, lon) {
+      let closest = CITIES_DB[0];
+      let minDist = Infinity;
+      for (const c of CITIES_DB) {
+        const d = Math.hypot(c.lat - lat, c.lon - lon);
+        if (d < minDist) {
+          minDist = d;
+          closest = c;
+        }
+      }
+      return closest;
+    }
+
+    async function resolveCoordinatesToCity(lat, lon) {
+      const nearestProfile = findNearestCityProfile(lat, lon);
+      try {
+        const res = await fetch(
+          `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lon}&localityLanguage=en`
+        );
+        const data = await res.json();
+        const city = data.city || data.locality || data.principalSubdivision;
+        const country = data.countryName;
+        if (city) {
+          const assignedName = country ? `${city}, ${country}` : city;
+          applyCityProfile(nearestProfile, assignedName, lat, lon, true);
+          return;
+        }
+      } catch (e) {
+        // Fallback seamlessly
+      }
+      applyCityProfile(nearestProfile, nearestProfile.name, lat, lon, true);
+    }
+
+    /* Method 1: Pick from Dropdown */
+    function selectCityFromList(cityName) {
+      const found = CITIES_DB.find(c => c.name === cityName) || CITIES_DB[0];
+      applyCityProfile(found, found.name, found.lat, found.lon, false);
+    }
+
+    /* Method 2: Auto GPS */
+    function detectGPSLocation() {
+      const btn = document.getElementById('gpsDetectBtn');
+      const feedback = document.getElementById('locationFeedback');
+
+      if (!('geolocation' in navigator)) {
+        feedback.innerText = 'GPS is unavailable on this browser. Use city picker or coordinates.';
+        feedback.style.display = 'block';
+        return;
+      }
+
+      btn.innerText = '⏳ Locating & assigning city...';
+      btn.disabled = true;
+
+      navigator.geolocation.getCurrentPosition(
+        async (pos) => {
+          await resolveCoordinatesToCity(pos.coords.latitude, pos.coords.longitude);
+          btn.innerText = '📡 Use My Current Location (GPS)';
+          btn.disabled = false;
+        },
+        () => {
+          btn.innerText = '📡 Use My Current Location (GPS)';
+          btn.disabled = false;
+          feedback.innerText = 'GPS access declined. Please pick a city or enter coordinates.';
+          feedback.style.display = 'block';
+        },
+        { timeout: 10000 }
+      );
+    }
+
+    /* Method 3: Exact Coordinates -> Assign to City */
+    async function assignExactCoordinates() {
+      const lat = parseFloat(document.getElementById('inputLat').value);
+      const lon = parseFloat(document.getElementById('inputLon').value);
+      const feedback = document.getElementById('locationFeedback');
+      const btn = document.getElementById('assignCoordBtn');
+
+      if (isNaN(lat) || isNaN(lon) || lat < -90 || lat > 90 || lon < -180 || lon > 180) {
+        feedback.innerText = 'Please enter valid latitude and longitude values.';
+        feedback.style.display = 'block';
+        return;
+      }
+
+      btn.innerText = '⏳ Assigning coordinates to city...';
+      btn.disabled = true;
+      await resolveCoordinatesToCity(lat, lon);
+      btn.innerText = '🗺️ Assign Coordinates to City';
+      btn.disabled = false;
+    }
+
+    // Initialize default view (Nakuru, Kenya <-> Punjab, India Sudden Storm Alert)
+    applyCityProfile(CITIES_DB[0]);
+  </script>
+
+</body>
+</html>

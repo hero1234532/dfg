@@ -1,0 +1,2 @@
+N,P,K,temperature,humidity,ph,rainfall,effective_water_mm,predicted_label,confidence_pct,plot_name,latitude,longitude
+140.0,31.5,55.7,-6.98,99.8,5.4,74.5,74.5,cotton,28.5,"Field (66.0, 91.0)",66.0,91.0
